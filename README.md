@@ -1,5 +1,9 @@
 # TaskBoard — тестовое приложение для лабораторной работы по CI/CD
 
+[![CI/CD](https://github.com/shtrebel/mpi-cicd-demo/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/shtrebel/mpi-cicd-demo/actions/workflows/ci-cd.yml)
+
+Рабочее приложение: https://shtrebel.github.io/mpi-cicd-demo/
+
 Небольшое приложение на Blazor WebAssembly: доска задач, где у каждого этапа
 есть лимит незавершённой работы. Нужно как предмет для процесса непрерывной
 интеграции и поставки.
