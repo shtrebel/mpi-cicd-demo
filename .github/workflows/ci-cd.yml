@@ -1,0 +1,91 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Сборка и тесты
+    runs-on: ubuntu-latest
+    steps:
+      - name: Забрать код из репозитория
+        uses: actions/checkout@v4
+
+      - name: Поставить .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Восстановить зависимости
+        run: dotnet restore
+
+      - name: Собрать решение
+        run: dotnet build --no-restore -c Release
+
+      - name: Прогнать юнит-тесты
+        run: >-
+          dotnet test --no-build -c Release
+          --logger "trx;LogFileName=tests.trx"
+          --results-directory TestResults
+
+      - name: Сохранить отчёт о тестах
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults
+
+  publish:
+    name: Сборка сайта
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Забрать код из репозитория
+        uses: actions/checkout@v4
+
+      - name: Поставить .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Опубликовать приложение
+        run: dotnet publish src/TaskBoard/TaskBoard.csproj -c Release -o release
+
+      - name: Прописать базовый путь GitHub Pages
+        run: |
+          sed -i 's|<base href="/" />|<base href="/${{ github.event.repository.name }}/" />|g' release/wwwroot/index.html
+
+      - name: Отключить обработку Jekyll
+        run: touch release/wwwroot/.nojekyll
+
+      - name: Упаковать сайт для публикации
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: release/wwwroot
+
+  deploy:
+    name: Развёртывание на GitHub Pages
+    needs: publish
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Выложить сайт
+        id: deployment
+        uses: actions/deploy-pages@v4

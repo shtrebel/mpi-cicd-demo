@@ -1,0 +1,88 @@
+@page "/"
+@using TaskBoard.Domain
+
+<PageTitle>Доска задач</PageTitle>
+
+<h1>Доска задач с лимитом работы</h1>
+
+<p>
+    Демонстрационное приложение для лабораторной работы по непрерывной поставке.
+    Каждый этап держит ограниченное число задач: если этап заполнен, перенести
+    в него задачу нельзя, пока не освободится место.
+</p>
+
+@if (_error is not null)
+{
+    <div class="alert">@_error</div>
+}
+
+<div class="board">
+    @foreach (var stage in _board.Stages)
+    {
+        <div class="stage">
+            <h2>@stage.Name</h2>
+            <p class="limit">@(stage.Limit is null ? "без лимита" : $"лимит: {stage.Limit}")</p>
+
+            @foreach (var item in stage.Items)
+            {
+                <div class="card">
+                    <span>@item.Title</span>
+                    @if (Next(stage.Name) is { } next)
+                    {
+                        <button @onclick="() => Move(item.Id, next)">в «@next»</button>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<style>
+    .board { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+    .stage { border: 1px dashed #9e9e9e; padding: 12px; min-width: 220px; }
+    .stage h2 { font-size: 1.1rem; margin: 0; }
+    .limit { color: #616161; font-size: .85rem; margin: 4px 0 12px; }
+    .card { border: 1px solid #000; padding: 8px; margin-bottom: 8px;
+            display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .card button { font-size: .8rem; }
+    .alert { border: 1px solid #b71c1c; color: #b71c1c; padding: 8px; margin-bottom: 12px; }
+</style>
+
+@code {
+    private readonly Board _board = new(
+        new Stage("Бэклог"),
+        new Stage("Разработка", limit: 2),
+        new Stage("Ревью", limit: 1),
+        new Stage("Готово"));
+
+    private string? _error;
+
+    protected override void OnInitialized()
+    {
+        _board.Place(new WorkItem("1", "Форма заявки"), "Бэклог");
+        _board.Place(new WorkItem("2", "Каталог: фильтры"), "Бэклог");
+        _board.Place(new WorkItem("3", "Импорт прайса"), "Бэклог");
+        _board.Place(new WorkItem("4", "Интеграция с CRM"), "Разработка");
+        _board.Place(new WorkItem("5", "Карточка товара"), "Разработка");
+    }
+
+    private string? Next(string stage)
+    {
+        var names = _board.Stages.Select(s => s.Name).ToList();
+        var index = names.IndexOf(stage);
+        return index >= 0 && index < names.Count - 1 ? names[index + 1] : null;
+    }
+
+    private void Move(string itemId, string toStage)
+    {
+        try
+        {
+            _board.Move(itemId, toStage);
+            _error = null;
+        }
+        catch (WipLimitExceededException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}
